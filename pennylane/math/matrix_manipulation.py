@@ -281,18 +281,23 @@ def _permutation_sparse_matrix(expanded_wires: Sequence, wire_order: Sequence) -
         csr_matrix: permutation matrix in CSR sparse format
     """
     n_total_wires = len(wire_order)
-    U = None
-    for i in range(n_total_wires):
-        if expanded_wires[i] != wire_order[i]:
-            if U is None:
-                U = eye(2**n_total_wires, format="csr")
-            j = expanded_wires.index(wire_order[i])  # location of correct wire
-            U = U @ _sparse_swap_mat(i, j, n_total_wires)  # swap incorrect wire for correct wire
-            U.eliminate_zeros()
+    perm_map = {w: i for i, w in enumerate(expanded_wires)}
+    perm = [perm_map[w] for w in wire_order]
 
-            expanded_wires[i], expanded_wires[j] = expanded_wires[j], expanded_wires[i]
+    if perm == list(range(n_total_wires)):
+        return None
 
-    return U
+    indices = np.arange(2**n_total_wires)
+    dest = []
+    for idx in indices:
+        new_idx = 0
+        for new_pos, old_pos in enumerate(perm):
+            if (idx >> old_pos) & 1:
+                new_idx |= 1 << new_pos
+        dest.append(new_idx)
+
+    data = np.ones_like(indices)
+    return csr_matrix((data, (indices, dest)), shape=(2**n_total_wires, 2**n_total_wires))
 
 
 def reduce_matrices(
